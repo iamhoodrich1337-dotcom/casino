@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Казино — демо</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF2EC; --surface:#FFFFFF; --felt:#1F5C46; --felt-ink:#F3F0E4;
+  --ink:#142019; --muted:#5C6B62; --line:#CCD6CF;
+  --brass:#B8862B; --red:#B3262E; --black:#1B1F1D; --green:#1E7A4F;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0E1A15; --surface:#15241D; --felt:#17402F; --felt-ink:#EDE8D6;
+    --ink:#E9EFE9; --muted:#93A69A; --line:#2A3D33;
+    --brass:#D9A645; --red:#D9434B; --black:#2B302D; --green:#2FA66B;
+    color-scheme: dark;
+  }
+}
+:root[data-scheme="dark"]{
+  --bg:#0E1A15; --surface:#15241D; --felt:#17402F; --felt-ink:#EDE8D6;
+  --ink:#E9EFE9; --muted:#93A69A; --line:#2A3D33;
+  --brass:#D9A645; --red:#D9434B; --black:#2B302D; --green:#2FA66B;
+  color-scheme: dark;
+}
+:root[data-scheme="light"]{
+  --bg:#EEF2EC; --surface:#FFFFFF; --felt:#1F5C46; --felt-ink:#F3F0E4;
+  --ink:#142019; --muted:#5C6B62; --line:#CCD6CF;
+  --brass:#B8862B; --red:#B3262E; --black:#1B1F1D; --green:#1E7A4F;
+  color-scheme: light;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Manrope,system-ui,sans-serif;background:var(--bg);color:var(--ink);
+  padding:12px 14px calc(16px + env(safe-area-inset-bottom));max-width:480px;margin:0 auto;
+  -webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none}
+button:focus-visible,input:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+header h1{font-family:Unbounded;font-size:18px;font-weight:700}
+.bal{font-family:Unbounded;font-size:22px;font-weight:700;color:var(--brass)}
+.bal small{font-family:Manrope;font-size:12px;color:var(--muted);font-weight:600;margin-left:4px}
+
+nav{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface);border:1px solid var(--line);
+  border-radius:14px;padding:4px;margin-bottom:12px}
+nav button{padding:10px 0;border-radius:10px;font-weight:700;font-size:14px;color:var(--muted)}
+nav button[aria-selected="true"]{background:var(--felt);color:var(--felt-ink)}
+
+section{display:none}
+section.active{display:block}
+
+.stage{background:var(--felt);color:var(--felt-ink);border-radius:20px;padding:16px;position:relative;
+  box-shadow:inset 0 0 0 3px color-mix(in srgb,var(--brass) 55%,transparent);margin-bottom:12px}
+.msg{min-height:22px;text-align:center;font-weight:700;margin-top:10px}
+.win{color:#7FE0A8}.lose{color:#FF9A9A}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px}
+.betrow{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.betrow label{font-size:13px;color:var(--muted);font-weight:600;white-space:nowrap}
+.betrow input{flex:1;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-weight:700}
+.mini{padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-weight:700;font-size:13px}
+.main{width:100%;padding:14px;border-radius:12px;background:var(--brass);color:#1A1406;font-weight:800;font-size:16px}
+.main:disabled{opacity:.45}
+.history{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;min-height:26px}
+.pill{font-size:12px;font-weight:700;padding:4px 8px;border-radius:99px;background:var(--bg);border:1px solid var(--line)}
+
+/* Roulette */
+.wheel-wrap{position:relative;width:min(78vw,280px);aspect-ratio:1;margin:4px auto 0}
+.wheel-wrap svg{width:100%;height:100%;transition:transform 4.2s cubic-bezier(.12,.8,.22,1)}
+.pointer{position:absolute;left:50%;top:-6px;transform:translateX(-50%);width:0;height:0;
+  border-left:10px solid transparent;border-right:10px solid transparent;border-top:18px solid var(--brass);z-index:2}
+.result{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.result span{font-family:Unbounded;font-size:30px;font-weight:700;width:68px;height:68px;border-radius:50%;
+  display:grid;place-items:center;background:var(--felt);border:3px solid var(--brass)}
+.bets{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.bets button{padding:9px 2px;border:1px solid var(--line);border-radius:10px;font-weight:700;font-size:13px}
+.bets button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.bets .r{color:var(--red)} .bets .r[aria-pressed="true"]{background:var(--red);color:#fff;border-color:var(--red)}
+#rlNumRow{display:none}
+
+/* Crash */
+.crash-box{position:relative;height:220px}
+#crashCanvas{width:100%;height:100%;display:block}
+.mult{position:absolute;inset:0;display:grid;place-items:center;font-family:Unbounded;font-size:44px;font-weight:700;pointer-events:none}
+.mult.crashed{color:#FF9A9A}
+
+/* Blackjack */
+.hand-label{font-size:13px;font-weight:600;opacity:.8;margin-bottom:6px}
+.hand{display:flex;gap:6px;min-height:84px;margin-bottom:14px;flex-wrap:wrap}
+.card{width:56px;height:80px;border-radius:8px;background:#FBF8EF;color:#1B1F1D;display:flex;flex-direction:column;
+  justify-content:space-between;padding:5px 6px;font-weight:800;box-shadow:0 2px 0 rgba(0,0,0,.25);
+  animation:deal .25s ease-out}
+.card.red{color:#B3262E}
+.card .s{font-size:24px;align-self:center}
+.card .rk{font-size:15px}
+.card.back{background:repeating-linear-gradient(45deg,var(--brass) 0 6px,#8E6417 6px 12px)}
+@keyframes deal{from{transform:translateY(-12px);opacity:0}}
+.bj-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.bj-actions button{padding:13px 0;border-radius:12px;font-weight:800;border:1px solid var(--line)}
+.bj-actions button:disabled{opacity:.35}
+
+.note{font-size:12px;color:var(--muted);text-align:center;margin-top:14px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(80px);background:var(--ink);color:var(--bg);
+  padding:10px 16px;border-radius:12px;font-weight:700;font-size:14px;transition:transform .25s;z-index:10}
+#toast.show{transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion: reduce){
+  .wheel-wrap svg{transition-duration:.01s}.card{animation:none}#toast{transition:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Казино</h1>
+  <div class="bal"><span id="balance">1 000</span><small>фишек</small></div>
+</header>
+
+<nav role="tablist">
+  <button role="tab" aria-selected="true" data-tab="roulette">Рулетка</button>
+  <button role="tab" aria-selected="false" data-tab="crash">Crash</button>
+  <button role="tab" aria-selected="false" data-tab="bj">Блэкджек</button>
+</nav>
+
+<!-- ROULETTE -->
+<section id="roulette" class="active">
+  <div class="stage">
+    <div class="wheel-wrap">
+      <div class="pointer"></div>
+      <svg id="wheel" viewBox="-150 -150 300 300"></svg>
+      <div class="result"><span id="rlResult">?</span></div>
+    </div>
+    <div class="msg" id="rlMsg"></div>
+  </div>
+  <div class="panel">
+    <div class="bets" id="rlBets">
+      <button class="r" data-t="red" aria-pressed="true">Красное</button>
+      <button data-t="black" aria-pressed="false">Чёрное</button>
+      <button data-t="even" aria-pressed="false">Чёт</button>
+      <button data-t="odd" aria-pressed="false">Нечет</button>
+      <button data-t="low" aria-pressed="false">1–18</button>
+      <button data-t="high" aria-pressed="false">19–36</button>
+      <button data-t="zero" aria-pressed="false">Зеро</button>
+      <button data-t="num" aria-pressed="false">Число</button>
+    </div>
+    <div class="betrow" id="rlNumRow"><label for="rlNum">Число 0–36</label><input id="rlNum" type="number" min="0" max="36" value="17" inputmode="numeric"></div>
+    <div class="betrow"><label for="rlBet">Ставка</label><input id="rlBet" type="number" min="1" value="50" inputmode="numeric">
+      <button class="mini" data-half="rlBet">½</button><button class="mini" data-double="rlBet">×2</button></div>
+    <button class="main" id="rlSpin">Крутить</button>
+    <div class="history" id="rlHist"></div>
+  </div>
+</section>
+
+<!-- CRASH -->
+<section id="crash">
+  <div class="stage">
+    <div class="crash-box">
+      <canvas id="crashCanvas"></canvas>
+      <div class="mult" id="crashMult">1.00×</div>
+    </div>
+    <div class="msg" id="crMsg"></div>
+  </div>
+  <div class="panel">
+    <div class="betrow"><label for="crBet">Ставка</label><input id="crBet" type="number" min="1" value="50" inputmode="numeric">
+      <button class="mini" data-half="crBet">½</button><button class="mini" data-double="crBet">×2</button></div>
+    <button class="main" id="crBtn">Поставить</button>
+    <div class="history" id="crHist"></div>
+  </div>
+</section>
+
+<!-- BLACKJACK -->
+<section id="bj">
+  <div class="stage">
+    <div class="hand-label">Дилер <span id="dScore"></span></div>
+    <div class="hand" id="dHand"></div>
+    <div class="hand-label">Вы <span id="pScore"></span></div>
+    <div class="hand" id="pHand"></div>
+    <div class="msg" id="bjMsg"></div>
+  </div>
+  <div class="panel">
+    <div class="betrow"><label for="bjBet">Ставка</label><input id="bjBet" type="number" min="1" value="50" inputmode="numeric">
+      <button class="mini" data-half="bjBet">½</button><button class="mini" data-double="bjBet">×2</button></div>
+    <button class="main" id="bjDeal">Раздать</button>
+    <div class="bj-actions" style="margin-top:8px">
+      <button id="bjHit" disabled>Ещё</button>
+      <button id="bjStand" disabled>Хватит</button>
+      <button id="bjDouble" disabled>Удвоить</button>
+    </div>
+  </div>
+</section>
+
+<p class="note">Демо на виртуальных фишках, без реальных денег</p>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); if (tg.colorScheme) document.documentElement.dataset.scheme = tg.colorScheme; }
+const haptic = (t='light') => tg?.HapticFeedback?.impactOccurred?.(t);
+const notify = t => tg?.HapticFeedback?.notificationOccurred?.(t);
+
+// ---- RNG (демо: на клиенте; для реальных денег — только на сервере!) ----
+function rand(){ const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296; }
+const randInt = n => Math.floor(rand() * n);
+
+// ---- Баланс ----
+let balance = 1000;
+const fmt = n => n.toLocaleString('ru-RU', {maximumFractionDigits: 2});
+function setBal(v){ balance = Math.round(v * 100) / 100; $('#balance').textContent = fmt(balance); }
+function takeBet(id){
+  const v = Math.floor(Number($('#' + id).value));
+  if (!(v > 0)) { toast('Введите ставку больше нуля'); return null; }
+  if (v > balance) { toast('Недостаточно фишек'); return null; }
+  setBal(balance - v); return v;
+}
+let toastT;
+function toast(t){ const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 1800); }
+function addHist(id, html){ const h = $('#' + id); h.insertAdjacentHTML('afterbegin', html); while (h.children.length > 10) h.lastChild.remove(); }
+function msg(id, text, cls=''){ const m = $('#' + id); m.textContent = text; m.className = 'msg ' + cls; }
+
+document.querySelectorAll('[data-half]').forEach(b => b.onclick = () => { const i = $('#' + b.dataset.half); i.value = Math.max(1, Math.floor(i.value / 2)); });
+document.querySelectorAll('[data-double]').forEach(b => b.onclick = () => { const i = $('#' + b.dataset.double); i.value = Math.min(Math.floor(balance) || 1, i.value * 2); });
+
+// ---- Вкладки ----
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.setAttribute('aria-selected', x === b));
+  document.querySelectorAll('section').forEach(s => s.classList.toggle('active', s.id === b.dataset.tab));
+  if (b.dataset.tab === 'crash') drawCrash();
+  haptic();
+});
+
+// ================= РУЛЕТКА (европейская, одно зеро) =================
+const WHEEL = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+const REDS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+const colorOf = n => n === 0 ? 'green' : REDS.has(n) ? 'red' : 'black';
+const SEG = 360 / 37;
+(function buildWheel(){
+  const R = 145, pt = a => [R * Math.sin(a * Math.PI / 180), -R * Math.cos(a * Math.PI / 180)];
+  let svg = '';
+  WHEEL.forEach((n, i) => {
+    const [x0, y0] = pt((i - .5) * SEG), [x1, y1] = pt((i + .5) * SEG);
+    svg += `<path d="M0 0L${x0} ${y0}A${R} ${R} 0 0 1 ${x1} ${y1}Z" fill="var(--${colorOf(n)})" stroke="var(--brass)" stroke-width=".6"/>`;
+    svg += `<text transform="rotate(${i * SEG}) translate(0,-128)" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-size="11" font-weight="700" font-family="Manrope">${n}</text>`;
+  });
+  svg += `<circle r="108" fill="var(--felt)" stroke="var(--brass)" stroke-width="2"/>`;
+  $('#wheel').innerHTML = svg;
+})();
+
+let rlType = 'red', rlRot = 0, spinning = false;
+document.querySelectorAll('#rlBets button').forEach(b => b.onclick = () => {
+  rlType = b.dataset.t;
+  document.querySelectorAll('#rlBets button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  $('#rlNumRow').style.display = rlType === 'num' ? 'flex' : 'none';
+});
+
+function rlWins(r, type, num){
+  switch (type){
+    case 'red': return REDS.has(r) ? 2 : 0;
+    case 'black': return r !== 0 && !REDS.has(r) ? 2 : 0;
+    case 'even': return r !== 0 && r % 2 === 0 ? 2 : 0;
+    case 'odd': return r % 2 === 1 ? 2 : 0;
+    case 'low': return r >= 1 && r <= 18 ? 2 : 0;
+    case 'high': return r >= 19 ? 2 : 0;
+    case 'zero': return r === 0 ? 36 : 0;
+    case 'num': return r === num ? 36 : 0;
+  }
+}
+
+$('#rlSpin').onclick = () => {
+  if (spinning) return;
+  let num = null;
+  if (rlType === 'num') {
+    num = parseInt($('#rlNum').value, 10);
+    if (!(num >= 0 && num <= 36)) { toast('Выберите число от 0 до 36'); return; }
+  }
+  const bet = takeBet('rlBet'); if (bet == null) return;
+  spinning = true; $('#rlSpin').disabled = true; haptic('medium');
+  msg('rlMsg', ''); $('#rlResult').textContent = '…'; $('#rlResult').style.background = 'var(--felt)';
+  const result = randInt(37), idx = WHEEL.indexOf(result);
+  const delta = ((-idx * SEG - rlRot) % 360 + 360) % 360;
+  rlRot += 360 * 6 + delta;
+  $('#wheel').style.transform = `rotate(${rlRot}deg)`;
+  setTimeout(() => {
+    const k = rlWins(result, rlType, num);
+    $('#rlResult').textContent = result;
+    $('#rlResult').style.background = `var(--${colorOf(result)})`;
+    if (k) { setBal(balance + bet * k); msg('rlMsg', `Выигрыш +${fmt(bet * k)}`, 'win'); notify('success'); }
+    else { msg('rlMsg', `Ставка ${fmt(bet)} проиграла`, 'lose'); notify('error'); }
+    addHist('rlHist', `<span class="pill" style="color:var(--${colorOf(result) === 'black' ? 'ink' : colorOf(result)})">${result}</span>`);
+    spinning = false; $('#rlSpin').disabled = false;
+  }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 100 : 4300);
+};
+
+// ================= CRASH =================
+const cv = $('#crashCanvas'), ctx = cv.getContext('2d');
+let cr = { state: 'idle', bet: 0, cp: 1, t0: 0, m: 1, cashed: false, raf: 0 };
+const GROWTH = 0.12;  // множитель = e^(0.12 * секунды)
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+function crashPoint(){ // ~3% мгновенный краш при 1.00×, это и есть преимущество казино
+  const r = rand();
+  return Math.max(1, Math.floor(97 / (1 - r)) / 100);
+}
+function drawCrash(){
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (!w) return;
+  cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const t = cr.state === 'idle' ? 0 : Math.log(cr.m) / GROWTH;
+  const maxT = Math.max(8, t * 1.1), maxM = Math.max(2, cr.m * 1.15);
+  const X = s => 8 + (s / maxT) * (w - 16), Y = m => h - 8 - ((m - 1) / (maxM - 1)) * (h - 16);
+  ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++){ ctx.beginPath(); ctx.moveTo(0, h * i / 4); ctx.lineTo(w, h * i / 4); ctx.stroke(); }
+  if (cr.state === 'idle') return;
+  ctx.beginPath(); ctx.moveTo(X(0), Y(1));
+  for (let s = 0; s <= t; s += t / 60) ctx.lineTo(X(s), Y(Math.exp(GROWTH * s)));
+  ctx.lineTo(X(t), Y(cr.m));
+  ctx.strokeStyle = cr.state === 'crashed' ? css('--red') : css('--brass'); ctx.lineWidth = 3; ctx.stroke();
+}
+function crLoop(){
+  const sec = (performance.now() - cr.t0) / 1000;
+  cr.m = Math.exp(GROWTH * sec);
+  if (cr.m >= cr.cp){
+    cr.m = cr.cp; cr.state = 'crashed';
+    $('#crashMult').textContent = cr.cp.toFixed(2) + '×'; $('#crashMult').classList.add('crashed');
+    if (!cr.cashed){ msg('crMsg', `Краш на ${cr.cp.toFixed(2)}× — ставка ${fmt(cr.bet)} сгорела`, 'lose'); notify('error'); }
+    addHist('crHist', `<span class="pill" style="color:${cr.cp >= 2 ? 'var(--green)' : 'var(--red)'}">${cr.cp.toFixed(2)}×</span>`);
+    $('#crBtn').textContent = 'Поставить'; $('#crBtn').disabled = false;
+    drawCrash(); return;
+  }
+  $('#crashMult').textContent = cr.m.toFixed(2) + '×';
+  if (!cr.cashed) $('#crBtn').textContent = `Забрать ${fmt(Math.floor(cr.bet * cr.m * 100) / 100)}`;
+  drawCrash();
+  cr.raf = requestAnimationFrame(crLoop);
+}
+$('#crBtn').onclick = () => {
+  if (cr.state === 'running' && !cr.cashed){
+    const win = Math.floor(cr.bet * cr.m * 100) / 100;
+    cr.cashed = true; setBal(balance + win);
+    msg('crMsg', `Забрали на ${cr.m.toFixed(2)}×: +${fmt(win)}`, 'win'); notify('success');
+    $('#crBtn').textContent = 'Ждём краш…'; $('#crBtn').disabled = true;
+    return;
+  }
+  if (cr.state === 'running') return;
+  const bet = takeBet('crBet'); if (bet == null) return;
+  haptic('medium');
+  cr = { state: 'running', bet, cp: crashPoint(), t0: performance.now(), m: 1, cashed: false };
+  $('#crashMult').classList.remove('crashed'); msg('crMsg', '');
+  crLoop();
+};
+window.addEventListener('resize', drawCrash);
+
+// ================= БЛЭКДЖЕК =================
+const SUITS = ['♠','♥','♦','♣'], RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+let shoe = [], pH = [], dH = [], bjBet = 0, bjActive = false;
+function newShoe(){ // 6 колод, тасовка Фишера–Йетса
+  shoe = [];
+  for (let d = 0; d < 6; d++) for (const s of SUITS) for (const r of RANKS) shoe.push({ r, s });
+  for (let i = shoe.length - 1; i > 0; i--){ const j = randInt(i + 1); [shoe[i], shoe[j]] = [shoe[j], shoe[i]]; }
+}
+const draw = () => { if (shoe.length < 60) newShoe(); return shoe.pop(); };
+function score(h){
+  let t = 0, aces = 0;
+  for (const c of h){ if (c.r === 'A'){ aces++; t += 11; } else t += ['J','Q','K'].includes(c.r) ? 10 : +c.r; }
+  while (t > 21 && aces){ t -= 10; aces--; }
+  return t;
+}
+const isBJ = h => h.length === 2 && score(h) === 21;
+function cardHTML(c, hidden){
+  if (hidden) return '<div class="card back" aria-label="Закрытая карта"></div>';
+  const red = c.s === '♥' || c.s === '♦';
+  return `<div class="card ${red ? 'red' : ''}"><span class="rk">${c.r}</span><span class="s">${c.s}</span></div>`;
+}
+function renderBJ(hideDealer){
+  $('#pHand').innerHTML = pH.map(c => cardHTML(c)).join('');
+  $('#dHand').innerHTML = dH.map((c, i) => cardHTML(c, hideDealer && i === 1)).join('');
+  $('#pScore').textContent = pH.length ? `· ${score(pH)}` : '';
+  $('#dScore').textContent = dH.length ? `· ${hideDealer ? score([dH[0]]) : score(dH)}` : '';
+}
+function setBJButtons(on){
+  $('#bjHit').disabled = $('#bjStand').disabled = !on;
+  $('#bjDouble').disabled = !(on && pH.length === 2 && balance >= bjBet);
+  $('#bjDeal').disabled = on;
+}
+function finish(text, payout){
+  bjActive = false; renderBJ(false); setBJButtons(false);
+  if (payout > 0) setBal(balance + payout);
+  const cls = payout > bjBet ? 'win' : payout === bjBet ? '' : 'lose';
+  msg('bjMsg', text, cls); notify(cls === 'win' ? 'success' : cls === 'lose' ? 'error' : 'warning');
+}
+$('#bjDeal').onclick = () => {
+  const bet = takeBet('bjBet'); if (bet == null) return;
+  bjBet = bet; pH = [draw(), draw()]; dH = [draw(), draw()]; bjActive = true;
+  msg('bjMsg', ''); haptic('medium');
+  if (isBJ(pH) || isBJ(dH)){
+    if (isBJ(pH) && isBJ(dH)) return finish('У обоих блэкджек — ничья', bjBet);
+    if (isBJ(pH)) return finish(`Блэкджек! +${fmt(bjBet * 2.5)}`, bjBet * 2.5);
+    return finish('У дилера блэкджек', 0);
+  }
+  renderBJ(true); setBJButtons(true);
+};
+$('#bjHit').onclick = () => {
+  if (!bjActive) return;
+  pH.push(draw()); haptic(); renderBJ(true);
+  if (score(pH) > 21) return finish(`Перебор: ${score(pH)}`, 0);
+  if (score(pH) === 21) return dealerPlay();
+  setBJButtons(true);
+};
+$('#bjStand').onclick = () => bjActive && dealerPlay();
+$('#bjDouble').onclick = () => {
+  if (!bjActive || balance < bjBet) return;
+  setBal(balance - bjBet); bjBet *= 2;
+  pH.push(draw()); renderBJ(true);
+  if (score(pH) > 21) return finish(`Перебор: ${score(pH)}`, 0);
+  dealerPlay();
+};
+function dealerPlay(){
+  setBJButtons(false); $('#bjDeal').disabled = true;
+  const step = () => {
+    renderBJ(false);
+    if (score(dH) < 17){ dH.push(draw()); return setTimeout(step, 450); }
+    const p = score(pH), d = score(dH);
+    if (d > 21) finish(`У дилера перебор — +${fmt(bjBet * 2)}`, bjBet * 2);
+    else if (p > d) finish(`Победа ${p} против ${d} — +${fmt(bjBet * 2)}`, bjBet * 2);
+    else if (p === d) finish(`Ничья ${p}:${d}, ставка возвращена`, bjBet);
+    else finish(`Дилер выиграл ${d} против ${p}`, 0);
+  };
+  setTimeout(step, 350);
+}
+newShoe();
+</script>
+</body>
+</html>
